@@ -1,5 +1,9 @@
 package dependency.manager.kit
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Dependency(val groupId: String, val artifactId: String, val version: String) {
     constructor(fullyQualifiedName: String) : this(
         fullyQualifiedName.split(":")[0],
@@ -12,42 +16,21 @@ fun Dependency.fullyQualifiedName(): String {
     return "$groupId:$artifactId:$version"
 }
 
-data class ResolvedDependency(val fullyQualifiedName: String, val dependencies: List<Dependency>, val pom: CachedArtifact, val jar: CachedArtifact)
-
-
-interface DependencyCache {
-    fun get(dependency: Dependency, version: DependencyVersion): Dependency?
+fun Dependency.versionAgnosticName(): String {
+    return "$groupId:$artifactId"
 }
 
-class DependencyCachePersistent(
-    private val artifactCache: ArtifactCache,
-    private val fileManager: FileManager,
-): DependencyCache {
-    override fun get(dependency: Dependency, version: DependencyVersion): Dependency? {
-        return when (version) {
-            is DependencyVersion.Any -> { 
-                val dependencyDirectory = Directories.dependencyDirectory(dependency)
-                if (!fileManager.fileExists(dependencyDirectory)) {
-                    return null
-                }
-
-                val versions = fileManager.contentsOfDirectory(dependencyDirectory, false)
-                if (versions.isNotEmpty()) {
-                    return Dependency(dependency.groupId, dependency.artifactId, versions.first())
-                }
-
-                return null
-            }
-            is DependencyVersion.Exact -> {
-                if (fileManager.fileExists(Directories.dependencyDirectoryOfExactVersion(dependency, version.rawVersion))) {
-                    return Dependency(dependency.groupId, dependency.artifactId, version.rawVersion)
-                }
-
-                return null
-            }
-        }
-    }
+fun Dependency.anyExistingVersion(): String {
+    return "$groupId:$artifactId"
 }
+
+data class ResolvedDependency(val fullyQualifiedName: String, val dependencies: List<Dependency>) 
+//, val pom: CachedArtifact, val jar: CachedArtifact)
+
+fun ResolvedDependency.versionAgnosticName(): String {
+    return "${fullyQualifiedName.split(":")[0]}:${fullyQualifiedName.split(":")[1]}"
+}
+
 
 sealed class DependencyVersion {
     object Any: DependencyVersion()

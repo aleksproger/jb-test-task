@@ -46,9 +46,7 @@ class ArtifactFetcherNew(
     private val artifactCache: ArtifactCache
 ) {
     suspend fun fetch(artifact: Artifact): CachedArtifact? = suspendCancellableCoroutine<CachedArtifact?> { continuation ->
-        println("Will resolve URL for $repository/${artifact.mavenPath}")
         val artifactURL = NSURL(string = "$repository/${artifact.mavenPath}")
-        println("Did resolve URL for $repository/${artifact.mavenPath}")
 
         val task = NSURLSession
             .sharedSession()

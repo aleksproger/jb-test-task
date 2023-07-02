@@ -1,74 +1,110 @@
 package dependency.manager.kit
 
 import kotlinx.coroutines.*
+import dependency.manager.kit.versionAgnosticName
 
 
 interface DependencyResolver {
     suspend fun resolve(dependency: Dependency): ResolvedDependency
 }
 
-class SingleDependencyResolver(
-    private val artifactFetcher: ArtifactFetcher,
-    private val transitiveDependenciesParser: TransitiveDependenciesParser,
-): DependencyResolver {
-    override suspend fun resolve(dependency: Dependency): ResolvedDependency = coroutineScope {
-        //  ArtifactCachePersistent("/Users/alex/Developer/maven_cache", FileManagerNative()))
+class DependencyDownloader(
+    private val artifactFetcher: ArtifactFetcher
+) {
+    suspend fun download(dependency: Dependency): CachedArtifact = coroutineScope {
         val pom = async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Pom)) }
         val jar = async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Jar)) }
-        var pomArtifact = pom.await()
-        val dependencies = async { transitiveDependenciesParser.parse(pomArtifact) }
-        ResolvedDependency(dependency.fullyQualifiedName(), dependencies.await(), pomArtifact, jar.await())
+        pom.await()
+    }
+}
+
+class SingleDependencyResolver(
+    private val downloader: DependencyDownloader,
+    private val dependenciesProvider: TransitiveDependenciesProvider,
+) {
+    suspend fun resolve(dependency: Dependency): Set<Dependency> = coroutineScope {
+        val pom = downloader.download(dependency)
+        dependenciesProvider.provide(pom).toSet()
     }
 }
 
 class AnyExistingVersionDependencyResolver(
-    private val subject: DependencyResolver,
-    private val dependencyCache: DependencyCache,
-    private val artifactCache: ArtifactCache
-): DependencyResolver {
-    override suspend fun resolve(dependency: Dependency): ResolvedDependency {
-        val anyVersionDependency = dependencyCache.get(dependency, DependencyVersion.Any)
-        
-        if (anyVersionDependency != null) {
-            val resolvedAnyVersionDependency = construct(anyVersionDependency)
-
-            if (resolvedAnyVersionDependency != null) {
-                return resolvedAnyVersionDependency
-            } 
+    private val subject: SingleDependencyResolver,
+    private val fileManager: FileManager,
+) {
+    fun exist(dependency: Dependency): Boolean {
+        val dependencyDirectory = Directories.dependencyDirectory(dependency)
+        if (!fileManager.fileExists(dependencyDirectory)) {
+            return false
         }
-        
-        return subject.resolve(dependency)
+
+        val versions = fileManager.contentsOfDirectory(dependencyDirectory, false)
+        if (versions.isNotEmpty()) {
+            return true
+        }
+
+        return false
     }
+}
 
-    private fun construct(dependency: Dependency): ResolvedDependency? {
-        val pom = artifactCache.getCache(Artifact(dependency.fullyQualifiedName(), ArtifactType.Pom))
-        val jar = artifactCache.getCache(Artifact(dependency.fullyQualifiedName(), ArtifactType.Jar))
 
-        if (pom != null && jar != null) {
-            return ResolvedDependency(dependency.fullyQualifiedName(), listOf(), pom, jar)
+class TopLevelDependencyTree(
+    private val cache: DependencyTreeCache,
+    private val downloader: DependencyDownloader,
+    private val resolver: DependencyTreeResolver,
+) {
+    suspend fun construct(dependency: Dependency) = coroutineScope {
+        val cachedDependencies = cache.get(dependency)
+        println("cachedDependencies: ${cachedDependencies?.joinToString("\n")}")
+
+        if (cachedDependencies != null) {
+            
+            cachedDependencies.map { async { downloader.download(it) } }.awaitAll()
+            async { downloader.download(dependency) }.await()
+            
+        } else {
+            val resolved = resolver.resolve(dependency)
+            cache.set(resolved, dependency)
         }
+    }
+}
 
-        return null
+
+class DependencyTreeValidator(
+    private val strictVersionResolver: DependencyResolver,
+    private val artifactFetcher: ArtifactFetcher,
+) {
+    suspend fun validate(dependencies: List<Dependency>) = coroutineScope {
+        dependencies.map { 
+            async { strictVersionResolver.resolve(it) }
+        }.awaitAll()
     }
 }
 
 class DependencyTreeResolver(
-    private val dependencyResolver: DependencyResolver
+    private val strictVersionResolver: SingleDependencyResolver,
+    private val anyExistingVersionResolver: AnyExistingVersionDependencyResolver
 ) {
-    suspend fun resolve(dependency: Dependency): Node = coroutineScope {
-        val resolvedDependency = async { dependencyResolver.resolve(dependency) }
-        val root = async { buildTree(resolvedDependency.await()) }
-        root.await()
+    suspend fun resolve(dependency: Dependency): Set<Dependency>{
+        return buildTree(strictVersionResolver.resolve(dependency), setOf())
     }
 
-    private suspend fun buildTree(root: ResolvedDependency): Node = coroutineScope {
-        val children = root.dependencies.map { 
-            async {
-                buildTree(dependencyResolver.resolve(it))
+    private suspend fun buildTree(next: Set<Dependency>, visited: Set<Dependency>): Set<Dependency>  {
+        if (next.isEmpty()) {
+            return visited
+        }
+       
+        val incompatibleWithCachedVersions = next.filter { 
+            !anyExistingVersionResolver.exist(it)
+        }
+
+        val children = coroutineScope {
+            incompatibleWithCachedVersions.map { 
+                async { strictVersionResolver.resolve(it) }
             }
         }
 
-        Node(root, children.awaitAll())
+        return buildTree(children.awaitAll().flatten().toSet(), visited + incompatibleWithCachedVersions)
     }
 }
 
