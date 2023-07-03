@@ -27,8 +27,6 @@ class ArtifactFetcherNew(
                     }
                 } else if (location != null) {
                     location.path?.let {
-                        println("Finished load with success: $repository/${artifact.mavenPath}")
-
                         continuation.resume(artifactCache.cache(artifact, it)) {
                             println("Canceled on resuming continuation: ${artifact.fullyQualifiedName}")
                         }

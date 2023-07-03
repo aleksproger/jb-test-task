@@ -24,3 +24,9 @@ class Artifact(val groupId: String, val artifactId: String, val version: String,
 }
 
 data class CachedArtifact(val artifact: Artifact, val absolutePath: String)
+
+//Unresolved reference: JvmInline
+// @JvmInline
+// value class POM(private val pom: CachedArtifact)
+// @JvmInline
+// value class JAR(private val pom: CachedArtifact)

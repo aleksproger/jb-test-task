@@ -14,8 +14,6 @@ allprojects {
         google()
         mavenCentral()
     }
-
-
 }
 
 tasks.register("clean", Delete::class) {

@@ -19,6 +19,7 @@ class FileManagerNative(private val subject: NSFileManager = NSFileManager.defau
         return result
     }
 
+    // KT-30959: Incorrect warning about type-cast(https://youtrack.jetbrains.com/issue/KT-30959)
     override fun createDirectory(atPath: String, withIntermediateDirectories: Boolean) {
         throwError { errorPointer ->
             subject.createDirectoryAtPath(atPath, withIntermediateDirectories, null, errorPointer)

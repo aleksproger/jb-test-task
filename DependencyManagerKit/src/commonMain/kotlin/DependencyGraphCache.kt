@@ -4,7 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 
-class DependencyTreeCache(private val fileManager: FileManager) {
+class DependencyGraphCache(private val fileManager: FileManager) {
     fun set(dependencies: Set<Dependency>, root: Dependency) {
         val jsonString = Json.encodeToString(dependencies)
         fileManager.saveToFile(Directories.resolvedFile(root), jsonString)

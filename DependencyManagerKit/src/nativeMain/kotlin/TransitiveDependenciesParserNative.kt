@@ -7,15 +7,15 @@ import platform.darwin.NSObject
 
 
 actual interface TransitiveDependenciesParser {
-    actual suspend fun parse(pom: CachedArtifact): List<Dependency>
+    actual suspend fun parse(pom: CachedArtifact): Set<Dependency>
 }
 
 @kotlinx.coroutines.ExperimentalCoroutinesApi
 class TransitiveDependenciesParserNative private constructor(private val scopes: Set<String>): TransitiveDependenciesParser {
     constructor(scopes: Set<TransitiveDependenciesScope>): this(scopes.map { it.scopeName }.toSet())
 
-    override suspend fun parse(pom: CachedArtifact): List<Dependency> {
-        return suspendCancellableCoroutine<List<Dependency>> { continuation ->
+    override suspend fun parse(pom: CachedArtifact): Set<Dependency> {
+        return suspendCancellableCoroutine<Set<Dependency>> { continuation ->
             var pomFileURL = NSURL(fileURLWithPath = pom.absolutePath)
             val xmlParser = XMLParser(NSXMLParser(pomFileURL), scopes)
 
@@ -32,17 +32,17 @@ class XMLParser(
     private val parser: NSXMLParser,
     private val scopes: Set<String>
 ) {
-    fun parse(callback: (List<Dependency>) -> Unit) {
+    fun parse(callback: (Set<Dependency>) -> Unit) {
         parser.delegate = XMLParserDelegate(callback, scopes)
         parser.parse()
     }
 }
 
 class XMLParserDelegate(
-    private val onParsingFinished: (List<Dependency>) -> Unit,
+    private val onParsingFinished: (Set<Dependency>) -> Unit,
     private val scopes: Set<String>
 ): NSObject(), NSXMLParserDelegateProtocol {
-    private var dependencies: MutableList<Dependency> = mutableListOf()
+    private var dependencies: MutableSet<Dependency> = mutableSetOf()
     private var currentDependency: MutableMap<String, String>? = null
     private var isExclusion: Boolean = false
     private var currentProperty: Pair<String, String?>? = null

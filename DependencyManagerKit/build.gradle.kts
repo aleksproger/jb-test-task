@@ -3,9 +3,7 @@ plugins {
     kotlin("plugin.serialization") version "1.8.22"
 }
 
-kotlin {
-    // jvm()
-    
+kotlin {    
     macosArm64("native") {
         binaries {
             framework {
@@ -27,6 +25,11 @@ kotlin {
             dependencies {
                 implementation("io.ktor:ktor-client-cio:2.2.3")
             }
+        }
+
+        all {
+            languageSettings.languageVersion = "1.8"
+            languageSettings.apiVersion = "1.8"
         }
     }
 }
