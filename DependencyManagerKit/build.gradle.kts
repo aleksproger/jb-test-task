@@ -25,14 +25,8 @@ kotlin {
 
         val nativeMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+                implementation("io.ktor:ktor-client-cio:2.2.3")
             }
         }
-
-        // val jvmMain by getting {
-        //     dependencies {
-        //         implementation(kotlin("stdlib-jdk8"))
-        //     }
-        // }
     }
 }

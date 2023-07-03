@@ -16,34 +16,30 @@ actual interface FileManager {
 class FileManagerNative(private val subject: NSFileManager = NSFileManager.defaultManager()): FileManager {
     override fun fileExists(atPath: String): Boolean {
         val result = subject.fileExistsAtPath(atPath)
-        // println("FileManagerNative.fileExists: $atPath, result: $result")
         return result
     }
 
     override fun createDirectory(atPath: String, withIntermediateDirectories: Boolean) {
         throwError { errorPointer ->
-            // println("FileManagerNative.createDirectory: $atPath")
             subject.createDirectoryAtPath(atPath, withIntermediateDirectories, null, errorPointer)
         }
     }
 
     override fun removeItem(atPath: String) {
         throwError { errorPointer ->
-            // println("FileManagerNative.removeItem: $atPath")
             subject.removeItemAtPath(atPath, errorPointer)
         }
     }
 
     override fun copyItem(atPath: String, toPath: String) {
         throwError { errorPointer ->
-            // println("FileManagerNative.copyItem: $atPath -> $toPath")
             subject.moveItemAtPath(atPath, toPath, errorPointer)
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun contentsOfDirectory(atPath: String, includeHiddenFiles: Boolean): List<String> {
         return throwError { errorPointer ->
-            // println("FileManagerNative.contentsOfDirectory: $atPath")
             val contents = subject.contentsOfDirectoryAtPath(atPath, errorPointer) as List<String>
             
             if (includeHiddenFiles) {
@@ -54,10 +50,10 @@ class FileManagerNative(private val subject: NSFileManager = NSFileManager.defau
         }
     }
 
+    // KT-30959: Incorrect warning about type-cast(https://youtrack.jetbrains.com/issue/KT-30959)
     override fun saveToFile(atPath: String, content: String) {
         throwError { errorPointer ->
-            val nsStringContent = content as NSString
-            nsStringContent.writeToFile(atPath, true, NSUTF8StringEncoding, errorPointer)
+            (content as NSString).writeToFile(atPath, true, NSUTF8StringEncoding, errorPointer)
         }
     }
 

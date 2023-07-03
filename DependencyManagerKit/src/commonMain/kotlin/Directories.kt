@@ -6,7 +6,7 @@ object Directories {
     }
 
     fun resolvedFile(dependency: Dependency): String {
-        return "${dependencyDirectoryOfExactVersion(dependency, dependency.version)}/Manifest.json"
+        return "${dependencyDirectoryOfExactVersion(dependency, dependency.version)}/Resolved.json"
     }
 
     fun dependencyDirectory(dependency: Dependency): String {

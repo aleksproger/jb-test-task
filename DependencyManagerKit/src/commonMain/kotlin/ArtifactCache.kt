@@ -26,6 +26,7 @@ class ArtifactCachePersistent(
 
 
     override fun cache(artifact: Artifact, tempLocation: String): CachedArtifact {
+        println("Caching artifact: $artifact")
         var artifactAbsoluteDirectory = "$cacheDirectory/${artifact.relativeDirectory}"
         var artifactAbsolutePath = "$cacheDirectory/${artifact.relativePath}"
 
@@ -35,6 +36,8 @@ class ArtifactCachePersistent(
 
         fileManager.createDirectory(artifactAbsoluteDirectory, true)
         fileManager.copyItem(tempLocation, artifactAbsolutePath)
+
+        println("Cached artifact: $artifact")
 
         return CachedArtifact(artifact, artifactAbsolutePath)
     }

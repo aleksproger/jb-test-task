@@ -10,6 +10,7 @@ actual interface TransitiveDependenciesParser {
     actual suspend fun parse(pom: CachedArtifact): List<Dependency>
 }
 
+@kotlinx.coroutines.ExperimentalCoroutinesApi
 class TransitiveDependenciesParserNative private constructor(private val scopes: Set<String>): TransitiveDependenciesParser {
     constructor(scopes: Set<TransitiveDependenciesScope>): this(scopes.map { it.scopeName }.toSet())
 
@@ -18,7 +19,7 @@ class TransitiveDependenciesParserNative private constructor(private val scopes:
             var pomFileURL = NSURL(fileURLWithPath = pom.absolutePath)
             val xmlParser = XMLParser(NSXMLParser(pomFileURL), scopes)
 
-            xmlParser.parse(pom.absolutePath) { dependencies ->
+            xmlParser.parse{ dependencies ->
                 continuation.resume(dependencies) {
                     println("Canceled parsing: $pom")
                 }
@@ -31,7 +32,7 @@ class XMLParser(
     private val parser: NSXMLParser,
     private val scopes: Set<String>
 ) {
-    fun parse(pomAbsolutePath: String, callback: (List<Dependency>) -> Unit) {
+    fun parse(callback: (List<Dependency>) -> Unit) {
         parser.delegate = XMLParserDelegate(callback, scopes)
         parser.parse()
     }
