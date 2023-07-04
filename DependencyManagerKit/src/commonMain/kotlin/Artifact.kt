@@ -1,8 +1,17 @@
 package dependency.manager.kit
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 sealed class ArtifactType(val fileExtension: String) {
+    @Serializable
     object Jar : ArtifactType("jar")
+
+    @Serializable
     object Pom : ArtifactType("pom")
+
+    @Serializable
+    object Klib : ArtifactType("klib")
 }
 
 class Artifact(val groupId: String, val artifactId: String, val version: String, val type: ArtifactType) {
@@ -20,6 +29,7 @@ class Artifact(val groupId: String, val artifactId: String, val version: String,
     val relativePath = when (type) {
         is ArtifactType.Pom -> "$relativeDirectory/pom.xml"
         is ArtifactType.Jar -> "$relativeDirectory/$artifactId.jar"
+        is ArtifactType.Klib -> "$relativeDirectory/$artifactId.klib"
     }
 }
 

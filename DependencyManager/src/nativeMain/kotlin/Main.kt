@@ -13,11 +13,10 @@ fun main(args: Array<String>) = runBlocking {
         listOf("https://repo1.maven.org/maven2", "https://jfrog.bintray.com/jfrog-jars"),
         artifactCache
     )
-    val dependencyDownloader = DependencyDownloaderDefault(artifactFetcher)
 
     val strictVersionResolver = PomDependenciesResolver(
-        dependencyDownloader,
-        TransitiveDependenciesParserNative(setOf(TransitiveDependenciesScope.Compile, TransitiveDependenciesScope.Runtime)),
+        PomManifestParserNative(setOf(TransitiveDependenciesScope.Compile, TransitiveDependenciesScope.Runtime)),
+        artifactFetcher
     )
 
     var argumentsParser = ArgumentsParser()
@@ -25,11 +24,12 @@ fun main(args: Array<String>) = runBlocking {
 
     val graph = TopLevelDependencyGraph(
         DependencyGraphCache(fileManager),
-        dependencyDownloader,
+        ResolvedDependencyDownloaderDefault(artifactFetcher),
         NodeDependencyGraph(
             strictVersionResolver,
             AnyExistingDependencyVersionPolicy(fileManager)
-        )
+        ),
+        strictVersionResolver
     )
 
     graph.construct(rootDependency)

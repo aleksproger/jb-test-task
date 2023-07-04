@@ -15,3 +15,7 @@ data class Dependency(val groupId: String, val artifactId: String, val version: 
 fun Dependency.fullyQualifiedName(): String {
     return "$groupId:$artifactId:$version"
 }
+
+@Serializable
+data class ResolvedDependency(val fullyQualifiedName: String, val artifactType: ArtifactType, val dependencies: Set<Dependency>)
+

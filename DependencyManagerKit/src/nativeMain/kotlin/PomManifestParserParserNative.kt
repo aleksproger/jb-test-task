@@ -5,22 +5,21 @@ import kotlinx.cinterop.*
 import kotlinx.coroutines.*
 import platform.darwin.NSObject
 
-
-actual interface TransitiveDependenciesParser {
-    actual suspend fun parse(pom: CachedArtifact): Set<Dependency>
+actual interface PomManifestParser {
+    actual suspend fun parse(pom: CachedArtifact): PomManifest
 }
 
 @kotlinx.coroutines.ExperimentalCoroutinesApi
-class TransitiveDependenciesParserNative private constructor(private val scopes: Set<String>): TransitiveDependenciesParser {
+class PomManifestParserNative private constructor(private val scopes: Set<String>): PomManifestParser {
     constructor(scopes: Set<TransitiveDependenciesScope>): this(scopes.map { it.scopeName }.toSet())
 
-    override suspend fun parse(pom: CachedArtifact): Set<Dependency> {
-        return suspendCancellableCoroutine<Set<Dependency>> { continuation ->
+    override suspend fun parse(pom: CachedArtifact): PomManifest{
+        return suspendCancellableCoroutine<PomManifest> { continuation ->
             var pomFileURL = NSURL(fileURLWithPath = pom.absolutePath)
             val xmlParser = XMLParser(NSXMLParser(pomFileURL), scopes)
 
-            xmlParser.parse{ dependencies ->
-                continuation.resume(dependencies) {
+            xmlParser.parse { manifest ->
+                continuation.resume(manifest) {
                     println("Canceled parsing: $pom")
                 }
             }
@@ -32,27 +31,38 @@ class XMLParser(
     private val parser: NSXMLParser,
     private val scopes: Set<String>
 ) {
-    fun parse(callback: (Set<Dependency>) -> Unit) {
+    fun parse(callback: (PomManifest) -> Unit) {
         parser.delegate = XMLParserDelegate(callback, scopes)
         parser.parse()
     }
 }
 
 class XMLParserDelegate(
-    private val onParsingFinished: (Set<Dependency>) -> Unit,
+    private val onParsingFinished: (PomManifest) -> Unit,
     private val scopes: Set<String>
 ): NSObject(), NSXMLParserDelegateProtocol {
     private var dependencies: MutableSet<Dependency> = mutableSetOf()
     private var currentDependency: MutableMap<String, String>? = null
     private var isExclusion: Boolean = false
+    private var isArtifactTypeResolving: Boolean = false
+    private var artifactType: String? = null
     private var currentProperty: Pair<String, String?>? = null
 
     override fun parserDidEndDocument(parser: NSXMLParser) {
-        onParsingFinished(dependencies)
+        val artifactType = when(artifactType) {
+            "jar" -> ArtifactType.Jar
+            "klib" -> ArtifactType.Klib
+            else -> ArtifactType.Jar
+        }
+        onParsingFinished(PomManifest(artifactType, dependencies))
     }
 
     override fun parser(parser: NSXMLParser, foundCharacters: String) {
         setPropertyToDependency(foundCharacters)
+
+        if (isArtifactTypeResolving) {
+            setArtifactType(foundCharacters)
+        }
     }
     
     override fun parser(
@@ -70,6 +80,10 @@ class XMLParserDelegate(
 
         if (isExclusion) {
             return
+        }
+
+        if (didStartElement == "packaging") {
+            isArtifactTypeResolving = true
         }
 
         if (didStartElement == "dependency") {
@@ -121,6 +135,11 @@ class XMLParserDelegate(
         }
 
         currentProperty = null
+    }
+
+    private fun setArtifactType(value: String) {
+        artifactType = value
+        isArtifactTypeResolving = false
     }
 
     private fun finishDependency() {

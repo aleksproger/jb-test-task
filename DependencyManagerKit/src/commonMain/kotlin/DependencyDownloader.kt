@@ -2,14 +2,14 @@ package dependency.manager.kit
 
 import kotlinx.coroutines.*
 
-interface DependencyDownloader {
-    suspend fun download(dependency: Dependency): Pair<CachedArtifact, CachedArtifact>
+interface ResolvedDependencyDownloader {
+    suspend fun download(dependency: ResolvedDependency)
 }
 
-class DependencyDownloaderDefault(private val artifactFetcher: ArtifactFetcher): DependencyDownloader {
-    override suspend fun download(dependency: Dependency): Pair<CachedArtifact, CachedArtifact> = coroutineScope {
-        val pom = async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Pom)) }
-        val jar = async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Jar)) }
-        Pair(pom.await(), jar.await())
+class ResolvedDependencyDownloaderDefault(private val artifactFetcher: ArtifactFetcher): ResolvedDependencyDownloader {
+    override suspend fun download(dependency: ResolvedDependency) = coroutineScope {
+        async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName, ArtifactType.Pom)) }
+        async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName, dependency.artifactType)) }
+        Unit
     }
 }

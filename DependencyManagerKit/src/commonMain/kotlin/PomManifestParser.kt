@@ -1,8 +1,10 @@
 package dependency.manager.kit
 
-expect interface TransitiveDependenciesParser {
-    suspend fun parse(pom: CachedArtifact): Set<Dependency>
+expect interface PomManifestParser {
+    suspend fun parse(pom: CachedArtifact): PomManifest
 }
+
+data class PomManifest(val artifactType: ArtifactType, val dependencies: Set<Dependency>)
 
 sealed class TransitiveDependenciesScope(val scopeName: String) {
     object Compile: TransitiveDependenciesScope("compile")
