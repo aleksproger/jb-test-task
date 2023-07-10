@@ -1,8 +1,7 @@
 package dependency.manager.kit
 
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.*
-import kotlinx.cinterop.*
-import kotlinx.coroutines.*
 import platform.darwin.NSObject
 
 actual interface PomManifestParser {
@@ -11,7 +10,7 @@ actual interface PomManifestParser {
 
 @kotlinx.coroutines.ExperimentalCoroutinesApi
 class PomManifestParserNative private constructor(private val scopes: Set<String>): PomManifestParser {
-    constructor(scopes: Set<TransitiveDependenciesScope>): this(scopes.map { it.scopeName }.toSet())
+    constructor(scopes: Set<TransitiveDependenciesScope>): this(scopes.mapTo(mutableSetOf()) { it.scopeName })
 
     override suspend fun parse(pom: CachedArtifact): PomManifest{
         return suspendCancellableCoroutine<PomManifest> { continuation ->

@@ -13,7 +13,7 @@ object Directories {
         return "${cacheDirectory()}/${dependency.groupId.replace(".", "/")}/${dependency.artifactId}"
     }
 
-    fun dependencyDirectoryOfExactVersion(dependency: Dependency, version: String): String {
+    private fun dependencyDirectoryOfExactVersion(dependency: Dependency, version: String): String {
         return "${cacheDirectory()}/${dependency.groupId.replace(".", "/")}/${dependency.artifactId}/${version}"
     }
 }

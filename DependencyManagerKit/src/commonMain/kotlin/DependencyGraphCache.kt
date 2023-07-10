@@ -11,16 +11,9 @@ class DependencyGraphCache(private val fileManager: FileManager) {
     }
 
     fun get(root: Dependency): Set<ResolvedDependency>? {
-        try {
+        return runCatching {
             val jsonString = fileManager.readFromFile(Directories.resolvedFile(root))
-
-            if (jsonString != null) {
-                return Json.decodeFromString<Set<ResolvedDependency>>(jsonString)
-            }
-            
-            return null
-        } catch(e: Exception) {
-            return null
-        }
+            jsonString?.let { Json.decodeFromString<Set<ResolvedDependency>>(it) }
+        }.getOrElse { null }
     }
 }

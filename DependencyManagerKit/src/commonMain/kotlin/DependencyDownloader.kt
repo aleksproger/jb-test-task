@@ -1,6 +1,7 @@
 package dependency.manager.kit
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 interface ResolvedDependencyDownloader {
     suspend fun download(dependency: ResolvedDependency)

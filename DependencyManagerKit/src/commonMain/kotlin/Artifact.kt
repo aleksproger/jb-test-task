@@ -14,7 +14,7 @@ sealed class ArtifactType(val fileExtension: String) {
     object Klib : ArtifactType("klib")
 }
 
-class Artifact(val groupId: String, val artifactId: String, val version: String, val type: ArtifactType) {
+class Artifact(private val groupId: String, private val artifactId: String, private val version: String, private val type: ArtifactType) {
     constructor(fullyQualifiedName: String, type: ArtifactType) : this(
         fullyQualifiedName.split(":")[0],
         fullyQualifiedName.split(":")[1],
