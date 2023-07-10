@@ -1,7 +1,10 @@
 package dependency.manager.kit
 
-import platform.Foundation.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.suspendCancellableCoroutine
+import platform.Foundation.NSHTTPURLResponse
+import platform.Foundation.NSURL
+import platform.Foundation.NSURLSession
+import platform.Foundation.downloadTaskWithURL
 
 actual interface ArtifactFetcher {
     actual suspend fun fetch(artifact: Artifact): CachedArtifact
@@ -18,23 +21,27 @@ class ArtifactFetcherNew(
         val task = NSURLSession
             .sharedSession()
             .downloadTaskWithURL(artifactURL) { location, response, error ->
-                if (error != null) {
-                    println("Finished load with error: ${artifact.fullyQualifiedName}}")
-                    continuation.resumeWith(Result.failure(Throwable("Error occurred during file download: ${error.localizedDescription}")))
-                } else if (response == null || "${(response as NSHTTPURLResponse).statusCode}" == "404") {
-                    continuation.resume(null) {
-                        println("Canceled on resuming continuation: ${artifact.fullyQualifiedName}")
+                when {
+                    error != null -> {
+                        println("Finished load with error: ${artifact.fullyQualifiedName}")
+                        continuation.resumeWith(Result.failure(Throwable("Error occurred during file download: ${error.localizedDescription}")))
                     }
-                } else if (location != null) {
-                    location.path?.let {
-                        continuation.resume(artifactCache.cache(artifact, it)) {
+
+                    response == null || (response as? NSHTTPURLResponse)?.statusCode == 404L -> {
+                        continuation.resume(null) {
                             println("Canceled on resuming continuation: ${artifact.fullyQualifiedName}")
                         }
                     }
-                }
-            }
 
-        task.resume() 
+                    location != null -> {
+                        location.path?.let { path ->
+                            continuation.resume(artifactCache.cache(artifact, path)) {
+                                println("Canceled on resuming continuation: ${artifact.fullyQualifiedName}")
+                            }
+                        }
+                    }
+                }
+            }.also { it.resume() }
 
         continuation.invokeOnCancellation {
             println("Canceled load: ${artifact.fullyQualifiedName}")
@@ -49,14 +56,13 @@ class MultipleRepositoriesArtifactFetcher(
     private val artifactCache: ArtifactCache
 ): ArtifactFetcher {
     override suspend fun fetch(artifact: Artifact): CachedArtifact {
-        val possibleCachedArtifact = artifactCache.getCache(artifact)
-        if (possibleCachedArtifact != null) {
-            return possibleCachedArtifact
+        artifactCache.getCache(artifact)?.let {
+            return it
         }
+
         for (repository in repositories) {
-            val cachedArtifact = ArtifactFetcherNew(repository, artifactCache).fetch(artifact)
-            if (cachedArtifact != null) {
-                return cachedArtifact
+            ArtifactFetcherNew(repository, artifactCache).fetch(artifact)?.let {
+                return it
             }
         }
 

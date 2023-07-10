@@ -1,6 +1,8 @@
 package dependency.manager.kit
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 interface DependencyGraph {
     suspend fun construct(dependency: Dependency): Set<ResolvedDependency>
@@ -13,17 +15,13 @@ class TopLevelDependencyGraph(
     private var dependenciesResolver: DependenciesResolver
 ) {
     suspend fun construct(dependency: Dependency): Set<ResolvedDependency> = coroutineScope {
-        val cachedDependencies = cache.get(dependency)
-
-        if (cachedDependencies != null) {
+        cache.get(dependency)?.let {
             async { dependenciesResolver.resolve(dependency) }
-            cachedDependencies.map { async { downloader.download(it) } }
-            cachedDependencies
-        } else {
-            val resolved = nodeGraph.construct(dependency)
-            cache.set(resolved, dependency)
-            resolved
+            it.map { async { downloader.download(it) } }
+            return@coroutineScope it
         }
+
+        nodeGraph.construct(dependency).also { cache.set(it, dependency) }
     }
 }
 
@@ -44,14 +42,12 @@ class NodeDependencyGraph(
             !versionPolicy.exist(nextDependency) || !visited.any { it.fullyQualifiedName == nextDependency.fullyQualifiedName() }
         }
 
-        val children: List<ResolvedDependency> = coroutineScope {
-            incompatibleWithCachedVersions.map { 
-                async { dependenciesResolver.resolve(it) }
-            }
+        val dependencies = coroutineScope {
+            incompatibleWithCachedVersions.mapTo(mutableSetOf()) { async { dependenciesResolver.resolve(it) } }
         }.awaitAll()
 
-        val childrenDependencies = children.flatMap { it.dependencies }
+        val transitiveDependencies = dependencies.flatMapTo(mutableSetOf()) { it.dependencies }
 
-        return buildGraph(childrenDependencies.toSet(), visited + children.toSet())
+        return buildGraph(transitiveDependencies, visited + dependencies)
     }
 }

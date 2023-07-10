@@ -10,27 +10,23 @@ class ArtifactCachePersistent(
     private val fileManager: FileManager
 ): ArtifactCache {
     init {
-        if (!fileManager.fileExists(cacheDirectory)) {
-            fileManager.createDirectory(cacheDirectory, true)
-        }
+        cacheDirectory
+            .takeIf { !fileManager.fileExists(it) }
+            ?.let { fileManager.createDirectory(it, true) }
     }
-
     override fun getCache(artifact: Artifact): CachedArtifact? {
-        if (fileManager.fileExists("$cacheDirectory/${artifact.relativePath}")) {
-            return CachedArtifact(artifact, "$cacheDirectory/${artifact.relativePath}")
-        } else {
-            return null
-        }
+        return artifact
+            .takeIf { fileManager.fileExists("$cacheDirectory/${it.relativePath}") }
+            ?.let { CachedArtifact(it, "$cacheDirectory/${it.relativePath}") }
     }
-
 
     override fun cache(artifact: Artifact, tempLocation: String): CachedArtifact {
-        var artifactAbsoluteDirectory = "$cacheDirectory/${artifact.relativeDirectory}"
-        var artifactAbsolutePath = "$cacheDirectory/${artifact.relativePath}"
+        val artifactAbsoluteDirectory = "$cacheDirectory/${artifact.relativeDirectory}"
+        val artifactAbsolutePath = "$cacheDirectory/${artifact.relativePath}"
 
-        if (fileManager.fileExists(artifactAbsolutePath)) {
-            fileManager.removeItem(artifactAbsolutePath)
-        }
+        artifactAbsolutePath
+            .takeIf { fileManager.fileExists(it) }
+            ?.let { fileManager.removeItem(it) }
 
         fileManager.createDirectory(artifactAbsoluteDirectory, true)
         fileManager.copyItem(tempLocation, artifactAbsolutePath)

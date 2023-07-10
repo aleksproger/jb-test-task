@@ -1,7 +1,7 @@
 package dependency.manager.kit
 
-import platform.Foundation.*
 import kotlinx.cinterop.*
+import platform.Foundation.*
 
 actual interface FileManager {
     actual fun fileExists(atPath: String): Boolean
@@ -15,8 +15,7 @@ actual interface FileManager {
 
 class FileManagerNative(private val subject: NSFileManager = NSFileManager.defaultManager()): FileManager {
     override fun fileExists(atPath: String): Boolean {
-        val result = subject.fileExistsAtPath(atPath)
-        return result
+       return subject.fileExistsAtPath(atPath)
     }
 
     // KT-30959: Incorrect warning about type-cast(https://youtrack.jetbrains.com/issue/KT-30959)
@@ -69,13 +68,9 @@ fun <T> throwError(block: (errorPointer: CPointer<ObjCObjectVar<NSError?>>) -> T
     memScoped {
         val errorPointer: CPointer<ObjCObjectVar<NSError?>> = alloc<ObjCObjectVar<NSError?>>().ptr
         val result: T = block(errorPointer)
-        val error: NSError? = errorPointer.pointed.value
-        if (error != null) {
-            throw NSErrorException(error)
-        } else {
-            return result
-        }
+        errorPointer.pointed.value?.let { throw NSErrorException(it) }
+        return result
     }
 }
 
-class NSErrorException(val nsError: NSError): Exception(nsError.toString())
+class NSErrorException(private val nsError: NSError): Exception(nsError.toString())

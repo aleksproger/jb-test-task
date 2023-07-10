@@ -10,15 +10,6 @@ class AnyExistingDependencyVersionPolicy(
 ): DependencyVersionPolicy {
     override fun exist(dependency: Dependency): Boolean {
         val dependencyDirectory = Directories.dependencyDirectory(dependency)
-        if (!fileManager.fileExists(dependencyDirectory)) {
-            return false
-        }
-
-        val versions = fileManager.contentsOfDirectory(dependencyDirectory, false)
-        if (versions.isNotEmpty()) {
-            return true
-        }
-
-        return false
+        return fileManager.fileExists(dependencyDirectory) && fileManager.contentsOfDirectory(dependencyDirectory, false).isNotEmpty()
     }
 }

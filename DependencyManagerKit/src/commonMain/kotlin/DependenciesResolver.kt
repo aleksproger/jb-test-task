@@ -1,6 +1,7 @@
 package dependency.manager.kit
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 
@@ -16,13 +17,14 @@ class PomDependenciesResolver(
     override suspend fun resolve(dependency: Dependency): ResolvedDependency = coroutineScope {
         println("Resolving $dependency")
 
-        val pom = artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Pom))
-        val manifest = dependenciesParser.parse(pom)
+        val manifest = artifactFetcher
+            .fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Pom))
+            .run { dependenciesParser.parse(this) }
 
-        if (manifest.artifactType == ArtifactType.Jar) {
-            async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Jar)) }
-        } else if (manifest.artifactType == ArtifactType.Klib) {
-            async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Klib)) }
+        when (manifest.artifactType) {
+            ArtifactType.Jar -> async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Jar)) }
+            ArtifactType.Klib -> async { artifactFetcher.fetch(Artifact(dependency.fullyQualifiedName(), ArtifactType.Klib)) }
+            ArtifactType.Pom -> println("Unexpected artifact type to resolve")
         }
 
         println("Resolved $dependency")
